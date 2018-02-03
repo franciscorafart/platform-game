@@ -64,6 +64,47 @@ Level.prototype.isFinished = function(){
   return this.status != null && this.finishDelay < 0
 }
 
+//Motion method
+// obstacleAt method tells if a rectangle overlaps with another non-empty space, and returns the object encountered
+Level.prototype.obstacleAt = function(pos,size){
+  //define limits of space used by player in Level according to size and position
+  let xStart = Math.floor(pos.x)
+  let xEnd = Math.ceil(pos.x + size.x)
+  let yStart = Math.floor(pos.y)
+  let yEnd = Math.ceil(pos.y + size.y)
+
+  if(xStart < 0 || xEnd > this.width || yStart<0)
+    return "wall"
+  if(yEnd > this.height)
+  //lava at the bottom ensures player dies if they fall
+    return "lava"
+  for(let y = yStart; y < yEnd; y++){
+    for (let x = xStart; x < xEnd; x++){
+      //look for field type
+      let fieldType = this.grid[y][x]
+      //if fieldType not null (not empty space), return what the field type is
+      //return content of first non empty space we find
+      if (fieldType) return fieldType
+    }
+  }
+}
+
+//Collisions with coins or lava are handles after the player moves
+
+//This method looks for actor that overlaps the one given as an argument
+Level.prototype.actorAt = function(actor){
+  for (let i = 0; i<this.actors.length; i++){
+    let other = this.actor[i]
+    if (other != actor &&
+      actor.pos.x + actor.size.x > other.pos.x &&
+      actor.pos.x < other.pos.x + other.size.x &&
+      actor.pos.y + actor.size.y > other.pos.y &&
+      actor.pos.y < other.pos.y + other.size.y)
+    return other
+  }
+}
+
+
 //Actor code
 
 function Vector(x,y){
