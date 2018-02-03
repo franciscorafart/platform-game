@@ -17,6 +17,12 @@ let actorChar = {
   "=": Lava, "|":Lava, "v": Lava
 }
 
+let maxStep = 0.05
+let wobbleSpeed = 8, wobbleDist = 0.07;
+let playerSpeed = 7
+let gravity = 30
+let jumpSpeed = 17
+let arrowCodes = {37:"left", 38: "up", 39:"right"}
 var simpleLevel = new Level(simpleLevelPlan);
 var display = new DOMDisplay(document.body, simpleLevel);
 
@@ -104,6 +110,46 @@ Level.prototype.actorAt = function(actor){
   }
 }
 
+//Method give every actor in the game a chance to move. Step is the time step in seconds.
+//Keys contains information about the keyboard arrow keys the user has pressed
+Level.prototype.animate = function(step, keys){
+
+  //if player has won or lost, finish delay is substracted
+  if(this.status != null)
+    this.finishDelay -= step
+
+  //cut timestep into suitable smaller pieces
+  while(step > 0){
+    let thisStep = Math.min(step, maxStep)
+    //all actors act
+    this.actors.forEach(function(actor){
+
+      actor.act(thisStep, this, keys)
+    }, this)
+    //take time away from the step
+    step -= thisStep
+  }
+}
+
+Level.prototype.playerTouched = function(type, actor){
+  //if lava touched, level status equals 'lost'
+  if (type == "lava" && this.status == null){
+    this.status = "lost"
+    this.finishDelay = 1
+    //if its a coint, that coin is removes
+  } else if (type == "coin"){
+    this.actors = this.actors.filter((other)=>{
+      return other != actor
+    })
+    //if it was the last coin, level status set to "won"
+    if (!this.actors.some((actor)=>{
+      return actor.type == "coin"
+    })) {
+      this.status = "won"
+      this.finishDelay = 1
+    }
+  }
+}
 
 //Actor code
 
@@ -129,8 +175,65 @@ function Player(pos){
 }
 Player.prototype.type = "player"
 
-//Lava Object
+//Player action
+Player.prototype.moveX = function(step, level, keys){
+  this.speed.x = 0
+  //direction of movement
+  if (keys.left) this.speed.x -= playerXSpeed
+  if(keys.right) this.speed.x += playerXSpeed
 
+  let motion = new Vector(this.speed * step, 0)
+  let newPos = this.pos.plus(motion)
+  //see if there's obstacle at new position
+  let obstacle = level.obstacleAt(newPos, this.size)
+  //id there's an obstacle,call playerTouched function
+  if (obstacle)
+    level.playerTouched(obstacle)
+  //if no obstacle, move there
+  else
+    this.pos = newPos
+}
+
+Player.prototype.moveY = function(step,level,keys){
+  this.speed.y += step * gravity //initialize accelerating vertically due to gravity
+  let motion = new Vector(0,this.speed.y * step)
+  let newPos = this.pos.plus(motion)
+
+  let obstacle = level.obstacleAt(newPos,this.size)
+  //if obstacle existes
+  if (obstacle){
+    //run playerTouched
+    level.playerTouched(obstacle)
+    //remove jump speed or 0 if it is the ground
+    if(keys.up && this.speed.y > 0)
+      this.speed.y -= jumpSpeed
+    else
+      this.speed.y = 0
+  } else{
+    //move to position if there's no obstacle
+    this.pos = newPos
+  }
+}
+
+//Player act
+
+Player.prototype.act = function(step, level, keys){
+  this.moveX(step, level, keys)
+  this.moveY(step, level, keys)
+
+  let otherActor = level.actorAt(this)
+  //if collision with another actor --> playerTouched. Passes other actor, to know which type of actor is touching
+  if (otherActor)
+    level.playerTouched(otherActor.type,otherActor)
+  //Loosing animation --> shrinking player
+  if (level.status == "lost")
+    this.pos.y += step
+    this.size.y -= step
+}
+
+
+
+//Lava Object
 //Initialized different depending on the character it has
 function Lava(pos,ch){
   this.pos = pos
@@ -147,6 +250,22 @@ function Lava(pos,ch){
 }
 Lava.prototype.type = "lava"
 
+//lava act ignores keys object, takes a time step and the Level object as arguments
+Lava.prototype.act = function(step,level){
+  let newPos = this.pos.plus(this.speed.times(step))
+  //if there's no onstacle, take the new position
+  if (!level.obstacleAt(newPos, this.size))
+    this.pos = newPos
+
+  //if there's an obstace, one of two possibilities
+  //case 1 - dripping lava object has repeatPos property ( back where you where) //stay in the same place
+  else if (this.repeatPos)
+    this.pos = this.repeatPos
+    //case 2 - Bouncing lava inverts speed, so that it starts moving in the other direction
+  else
+    this.speed = this.speed.times(-1)
+}
+
 //Coins . they stay in one place with a slight wobble.
 
 function Coin(pos){
@@ -156,6 +275,14 @@ function Coin(pos){
   this.wobble = Math.random() * Math.PI * 2
 }
 Coin.prototype.type = "coin"
+
+//Coin act method handles wooble. Collisions with player will be handles in Player's act Method
+Coin.prototype.act = function(step){
+  this.wobble += step * wobbleSpeed
+  //create a Wave
+  let wobblePos = Math.sin(thisWobble) * wobbleDist
+  this.pos = this.basePos.plus(new Vector(0, wobblePos))
+}
 
   // let simpleLevel = new Level(simpleLevelPlan)
   // console.log(simpleLevel.width+ " by "+simpleLevel.height)
@@ -262,3 +389,18 @@ function DOMDisplay(parent, level){
  DOMDisplay.prototype.clear = function(){
    this.wrap.parentNode.removeChild(this.wrap)
  }
+
+ //key tracking
+function trackKeys(codes){
+  let pressed = Object.create(null)
+  function handler(event){
+    if (codes.hasOwnProperty(event.keyCode)){
+    let down = event.type == "keydown"
+    pressed[codes[event.keyCode]] = down
+    event.preventDefault()
+    }
+  }
+  addEventListener("keydown", handler)
+  addEventListener("keyup", handler)
+  return pressed
+}
