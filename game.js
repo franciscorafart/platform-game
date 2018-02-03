@@ -23,6 +23,7 @@ let playerSpeed = 7
 let gravity = 30
 let jumpSpeed = 17
 let arrowCodes = {37:"left", 38: "up", 39:"right"}
+let arrows = trackKeys(arrowCodes)
 var simpleLevel = new Level(simpleLevelPlan);
 var display = new DOMDisplay(document.body, simpleLevel);
 
@@ -403,4 +404,51 @@ function trackKeys(codes){
   addEventListener("keydown", handler)
   addEventListener("keyup", handler)
   return pressed
+}
+
+
+//Animation
+function runAnimation(frameFunc){
+  let lastTime = null
+  function frame(time){
+    let stop = false
+    if(lastTime != null){
+      let timeStep = Math.min(time - lastTime, 100)/1000;
+      stop = frameFunc(timeStep) === false
+    }
+    lastTime = time
+    if (!stop)
+      requestAnimationFrame(frame)
+  }
+  requestAnimationFrame(frame)
+}
+
+//takes level, display constructir, and option andThen that calls the function with the level status
+function runLevel(level, Display, andThen){
+  let display = new Display(document.body, level)
+  runAnimation(function(step){
+    level.animate(step,arrows)
+    display.drawFrame(step)
+    if(level.isFinished()){
+      display.clear()
+      if(andThen)
+        andThen(level.status)
+      return false
+    }
+  })
+}
+
+//Sequence of levels
+function runGame(plans, Display){
+  function startLevel(n){
+    runLevel(new Level(plans[n]), Display, function(status){
+      if (status == "lost")
+        startLevel(n)
+      else if (n<plans.length -1)
+        startLevel(n+1)
+      else
+        console.log("you win")
+    })
+  }
+  startLevel(0)
 }
