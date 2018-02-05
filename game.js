@@ -16,16 +16,7 @@ let actorChar = {
   "o": Coin,
   "=": Lava, "|":Lava, "v": Lava
 }
-
-let maxStep = 0.05
-let wobbleSpeed = 8, wobbleDist = 0.07;
-let playerSpeed = 7
-let gravity = 30
-let jumpSpeed = 17
-let arrowCodes = {37:"left", 38: "up", 39:"right"}
-let arrows = trackKeys(arrowCodes)
-var simpleLevel = new Level(simpleLevelPlan);
-var display = new DOMDisplay(document.body, simpleLevel);
+let scale = 20
 
 //Object to read the level
 function Level(plan){
@@ -46,6 +37,7 @@ function Level(plan){
       //if the actor exists push it as a new Actor Object to the actors property, with its coordinate
       if(Actor)
         this.actors.push(new Actor(new Vector(x,y),ch))
+
           //each Actor will have a size property, a position coordinate and a type property.
       //if ch is wall or lava change fieldType, because it's not null
       else if (ch == 'x')
@@ -352,7 +344,7 @@ function DOMDisplay(parent, level){
    //first remove actor layer
     this.wrap.removeChild(this.actorLayer)
     //redefin actorLayer with drawActor method
-    this.actorLayer = this.wrap.appendChild(this.drawActor())
+    this.actorLayer = this.wrap.appendChild(this.drawActors())
     //change class name depending on level status (condition of the player)
     this.wrap.className = "game" + (this.level.status || "")
     //method to scroll the View in case the level is protruding outside the viewport. Keeps the player centered
@@ -362,7 +354,7 @@ function DOMDisplay(parent, level){
  //In scroll Player into view method, we see the position of the player and scroll the view manipulating the
  //scrollLeft and scrollTop properties.
 
- DOMDisplay.scrollPlayerIntoView = function(){
+ DOMDisplay.prototype.scrollPlayerIntoView = function(){
    let width = this.wrap.clientWidth
    let height = this.wrap.clientHeight
    let margin = width/3
@@ -395,6 +387,7 @@ function DOMDisplay(parent, level){
 function trackKeys(codes){
   let pressed = Object.create(null)
   function handler(event){
+    console.log(event.keyCode)
     if (codes.hasOwnProperty(event.keyCode)){
     let down = event.type == "keydown"
     pressed[codes[event.keyCode]] = down
@@ -425,7 +418,9 @@ function runAnimation(frameFunc){
 
 //takes level, display constructir, and option andThen that calls the function with the level status
 function runLevel(level, Display, andThen){
-  let display = new Display(document.body, level)
+  //TODO: This code was giving an error
+  // let display = new Display(document.body, level)
+  let display = Display
   runAnimation(function(step){
     level.animate(step,arrows)
     display.drawFrame(step)
@@ -452,3 +447,16 @@ function runGame(plans, Display){
   }
   startLevel(0)
 }
+
+
+let maxStep = 0.05
+let wobbleSpeed = 8, wobbleDist = 0.07;
+let playerSpeed = 7
+let gravity = 30
+let jumpSpeed = 17
+let arrowCodes = {37:"left", 38: "up", 39:"right"}
+let arrows = trackKeys(arrowCodes)
+let simpleLevel = new Level(simpleLevelPlan);
+let display = new DOMDisplay(document.body, simpleLevel);
+
+runGame(simpleLevelPlan, display);
